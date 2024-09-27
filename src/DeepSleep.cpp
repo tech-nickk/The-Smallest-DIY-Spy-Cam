@@ -7,74 +7,121 @@
 // CAMERA_MODEL_XIAO_ESP32S3 // Has PSRAM
 // CAMERA PINS
 
-#define PWDN_GPIO_NUM     -1
-#define RESET_GPIO_NUM    -1
-#define XCLK_GPIO_NUM     10
-#define SIOD_GPIO_NUM     40
-#define SIOC_GPIO_NUM     39
+#define PWDN_GPIO_NUM -1
+#define RESET_GPIO_NUM -1
+#define XCLK_GPIO_NUM 10
+#define SIOD_GPIO_NUM 40
+#define SIOC_GPIO_NUM 39
 
-#define Y9_GPIO_NUM       48
-#define Y8_GPIO_NUM       11
-#define Y7_GPIO_NUM       12
-#define Y6_GPIO_NUM       14
-#define Y5_GPIO_NUM       16
-#define Y4_GPIO_NUM       18
-#define Y3_GPIO_NUM       17
-#define Y2_GPIO_NUM       15
-#define VSYNC_GPIO_NUM    38
-#define HREF_GPIO_NUM     47
-#define PCLK_GPIO_NUM     13
+#define Y9_GPIO_NUM 48
+#define Y8_GPIO_NUM 11
+#define Y7_GPIO_NUM 12
+#define Y6_GPIO_NUM 14
+#define Y5_GPIO_NUM 16
+#define Y4_GPIO_NUM 18
+#define Y3_GPIO_NUM 17
+#define Y2_GPIO_NUM 15
+#define VSYNC_GPIO_NUM 38
+#define HREF_GPIO_NUM 47
+#define PCLK_GPIO_NUM 13
 
-#define LED_GPIO_NUM      21
+#define LED_GPIO_NUM 21
 
-#define capturePin      D0
+#define capturePin D0
 
-unsigned long lastPressTime = 0; // Track when the button is pressed
-unsigned long pressDuration = 0; // Track the duration of the press
+unsigned long lastPressTime = 0;   // Track when the button is pressed
+unsigned long pressDuration = 0;   // Track the duration of the press
 unsigned long lastCaptureTime = 0; // Last shooting time
 int imageCount = 1;                // File Counter
 bool camera_sign = false;          // Check camera status
 bool sd_sign = false;              // Check sd status
 bool captureFlag = false;
 
-bool isButtonPressed() {
+
+int extractIntFromString(String str) {
+    String numString = "";
+    for (int i = 0; i < str.length(); i++) {
+        if (isDigit(str[i])) {
+            numString += str[i];
+        }
+    }
+    if (numString.length() > 0) {
+        return numString.toInt(); 
+    } else {
+        return -1; 
+    }
+}
+
+int getHighestFile(File dir, int numTabs)
+{
+  File entry;
+  int highest = 1;
+  while ((entry = dir.openNextFile()))
+  {
+    const char* name = entry.name();
+    int nr = extractIntFromString(name);
+    if (nr > highest) {
+      highest = nr;
+    }
+    entry.close();
+  }
+  return highest;
+}
+
+void setImageCount(fs::FS &fs)
+{ 
+  Serial.print("FUNCTION");
+  File root = SD.open("/");
+  imageCount = getHighestFile(root, 0);
+}
+
+bool isButtonPressed()
+{
   return digitalRead(capturePin) == LOW;
 }
 
+// SD card write file
+void writeFile(fs::FS &fs, const char *path, uint8_t *data, size_t len)
+{
+  Serial.printf("Writing file: %s\n", path);
+  
+  File file = fs.open(path, FILE_WRITE);
+  if (!file)
+  {
+    Serial.println("Failed to open file for writing");
+    return;
+  }
+  if (file.write(data, len) == len)
+  {
+    Serial.println("File written");
+  }
+  else
+  {
+    Serial.println("Write failed");
+  }
+  file.close();
+}
+
 // Save pictures to SD card
-void photo_save(const char * fileName) {
+void photo_save(const char *fileName)
+{
   camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) {
+  if (!fb)
+  {
     Serial.println("Failed to get camera frame buffer");
     return;
   }
   // Save photo to file
   writeFile(SD, fileName, fb->buf, fb->len);
-  
+
   // Release image buffer
   esp_camera_fb_return(fb);
 
   Serial.println("Photo saved to file");
 }
 
-// SD card write file
-void writeFile(fs::FS &fs, const char * path, uint8_t * data, size_t len){
-    Serial.printf("Writing file: %s\n", path);
-
-    File file = fs.open(path, FILE_WRITE);
-    if(!file){
-        Serial.println("Failed to open file for writing");
-        return;
-    }
-    if(file.write(data, len) == len){
-        Serial.println("File written");
-    } else {
-        Serial.println("Write failed");
-    }
-    file.close();
-}
-
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   pinMode(capturePin, INPUT_PULLUP);
 
@@ -105,16 +152,22 @@ void setup() {
   config.jpeg_quality = 12;
   config.fb_count = 1;
 
-  if(config.pixel_format == PIXFORMAT_JPEG){
-    if(psramFound()){
+  if (config.pixel_format == PIXFORMAT_JPEG)
+  {
+    if (psramFound())
+    {
       config.jpeg_quality = 10;
       config.fb_count = 2;
       config.grab_mode = CAMERA_GRAB_LATEST;
-    } else {
+    }
+    else
+    {
       config.frame_size = FRAMESIZE_SVGA;
       config.fb_location = CAMERA_FB_IN_DRAM;
     }
-  } else {
+  }
+  else
+  {
     config.frame_size = FRAMESIZE_240X240;
 #if CONFIG_IDF_TARGET_ESP32S3
     config.fb_count = 2;
@@ -122,32 +175,42 @@ void setup() {
   }
 
   esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
+  if (err != ESP_OK)
+  {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
   }
-  
+
   camera_sign = true;
 
-  if(!SD.begin(21)){
+  if (!SD.begin(21))
+  {
     Serial.println("Card Mount Failed");
     return;
   }
   uint8_t cardType = SD.cardType();
 
-  if(cardType == CARD_NONE){
+  if (cardType == CARD_NONE)
+  {
     Serial.println("No SD card attached");
     return;
   }
 
   Serial.print("SD Card Type: ");
-  if(cardType == CARD_MMC){
+  if (cardType == CARD_MMC)
+  {
     Serial.println("MMC");
-  } else if(cardType == CARD_SD){
+  }
+  else if (cardType == CARD_SD)
+  {
     Serial.println("SDSC");
-  } else if(cardType == CARD_SDHC){
+  }
+  else if (cardType == CARD_SDHC)
+  {
     Serial.println("SDHC");
-  } else {
+  }
+  else
+  {
     Serial.println("UNKNOWN");
   }
 
@@ -155,36 +218,14 @@ void setup() {
 
   Serial.println("*** XIAO ESP32S3 Spy Camera ***");
   Serial.println("Press button to capture and save an image\n");
-
+  setImageCount(SD);
   esp_sleep_enable_ext0_wakeup(static_cast<gpio_num_t>(capturePin), 0); // Wake up on long press
 }
 
-void loop() {
-  if (isButtonPressed()) {
-    if (lastPressTime == 0) {
-      lastPressTime = millis(); // Record the press start time
-    }
-
-    pressDuration = millis() - lastPressTime;
-
-    if (pressDuration > 1000) { // Long press detection (>1 second)
-      Serial.println("Long press detected: Going to deep sleep");
-      delay(500); // Delay to debounce before deep sleep
-      esp_deep_sleep_start(); // Enter deep sleep
-    }
-  } else {
-    if (lastPressTime > 0 && pressDuration < 1000) { // Single short press detected
-      Serial.println("Short press detected: Taking picture");
-      take_pic();
-    }
-
-    lastPressTime = 0; // Reset timing when the button is released
-    pressDuration = 0;
-  }
-}
-
-void take_pic() {
-  if(camera_sign && sd_sign){
+void take_pic()
+{
+  if (camera_sign && sd_sign)
+  {
     Serial.println("\nImage Captured");
     char filename[32];
     sprintf(filename, "/image%d.jpg", imageCount);
@@ -192,5 +233,36 @@ void take_pic() {
     Serial.printf("Saved picture：%s\n", filename);
     Serial.println("");
     imageCount++;
+  }
+}
+
+void loop()
+{
+  if (isButtonPressed())
+  {
+    if (lastPressTime == 0)
+    {
+      lastPressTime = millis(); // Record the press start time
+    }
+
+    pressDuration = millis() - lastPressTime;
+
+    if (pressDuration > 1000)
+    { // Long press detection (>1 second)
+      Serial.println("Long press detected: Going to deep sleep");
+      delay(500);             // Delay to debounce before deep sleep
+      esp_deep_sleep_start(); // Enter deep sleep
+    }
+  }
+  else
+  {
+    if (lastPressTime > 0 && pressDuration < 1000)
+    { // Single short press detected
+      Serial.println("Short press detected: Taking picture");
+      take_pic();
+    }
+
+    lastPressTime = 0; // Reset timing when the button is released
+    pressDuration = 0;
   }
 }
