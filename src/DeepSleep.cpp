@@ -250,7 +250,8 @@ void loop()
     if (pressDuration > 1000)
     { // Long press detection (>1 second)
       Serial.println("Long press detected: Going to deep sleep");
-      delay(500);             // Delay to debounce before deep sleep
+      delay(500);        // Delay to debounce before deep sleep
+      esp_camera_deinit();     
       esp_deep_sleep_start(); // Enter deep sleep
     }
   }
