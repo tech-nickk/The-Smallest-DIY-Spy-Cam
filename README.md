@@ -31,7 +31,7 @@ Welcome to the repository for **The Smallest DIY Spy Cam** project. This project
 
 2. **Software**
    - Clone this repository to your local machine.
-   - Open the project in the Arduino IDE.
+   - Open the project VSCode and install the PlatformIO Plugin.
    - Select the Xiao ESP32S3 board.
    - Upload the code to the board.
   
