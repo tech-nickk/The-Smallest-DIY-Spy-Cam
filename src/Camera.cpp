@@ -34,22 +34,41 @@ bool camera_sign = false;          // Check camera status
 bool sd_sign = false;              // Check sd status
 bool captureFlag = false;
 
-void take_pic()
-{
-  if(camera_sign && sd_sign){
-       
-      if (digitalRead(capturePin) == 0) { // checks when the button is pressed
-        delay(200); //delay for debouncing
-        Serial.println("\nImage Captured");
-        char filename[32];
-        sprintf(filename, "/image%d.jpg", imageCount);
-        photo_save(filename);
-        Serial.printf("Saved picture：%s\n", filename);
-        Serial.println("");
-        imageCount++;   
-
+int extractIntFromString(String str) {
+    String numString = "";
+    for (int i = 0; i < str.length(); i++) {
+        if (isDigit(str[i])) {
+            numString += str[i];
+        }
     }
+    if (numString.length() > 0) {
+        return numString.toInt(); 
+    } else {
+        return -1; 
+    }
+}
+
+int getHighestFile(File dir, int numTabs)
+{
+  File entry;
+  int highest = 1;
+  while ((entry = dir.openNextFile()))
+  {
+    const char* name = entry.name();
+    int nr = extractIntFromString(name);
+    if (nr > highest) {
+      highest = nr;
+    }
+    entry.close();
   }
+  return highest;
+}
+
+void setImageCount(fs::FS &fs)
+{ 
+  Serial.print("FUNCTION");
+  File root = SD.open("/");
+  imageCount = getHighestFile(root, 0);
 }
 
 // SD card write file
@@ -69,6 +88,7 @@ void writeFile(fs::FS &fs, const char * path, uint8_t * data, size_t len){
     file.close();
 }
 
+
 // Save pictures to SD card
 void photo_save(const char * fileName) {
   // Take a photo
@@ -85,6 +105,28 @@ void photo_save(const char * fileName) {
 
   Serial.println("Photo saved to file");
 }
+
+
+void take_pic()
+{
+  if(camera_sign && sd_sign){
+       
+      if (digitalRead(capturePin) == 0) { // checks when the button is pressed
+        delay(200); //delay for debouncing
+        Serial.println("\nImage Captured");
+        char filename[32];
+        sprintf(filename, "/image%d.jpg", imageCount);
+        photo_save(filename);
+        Serial.printf("Saved picture：%s\n", filename);
+        Serial.println("");
+        imageCount++;   
+
+    }
+  }
+}
+
+
+
 
 
 
@@ -107,8 +149,8 @@ void setup() {
   config.pin_pclk = PCLK_GPIO_NUM;
   config.pin_vsync = VSYNC_GPIO_NUM;
   config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn = PWDN_GPIO_NUM;
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
@@ -174,9 +216,10 @@ void setup() {
 
   sd_sign = true; // sd initialization check passes
 
-
+  setImageCount(SD);
   Serial.println("*** XIAO ESP32S3 Spy Camera ***");
   Serial.println("Press button to capture and save an image\n");
+
 }
 
 void loop() {
