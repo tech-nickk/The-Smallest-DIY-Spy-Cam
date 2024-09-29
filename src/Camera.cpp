@@ -34,21 +34,22 @@ bool camera_sign = false;          // Check camera status
 bool sd_sign = false;              // Check sd status
 bool captureFlag = false;
 
-// Save pictures to SD card
-void photo_save(const char * fileName) {
-  // Take a photo
-  camera_fb_t *fb = esp_camera_fb_get();
-  if (!fb) {
-    Serial.println("Failed to get camera frame buffer");
-    return;
-  }
-  // Save photo to file
-  writeFile(SD, fileName, fb->buf, fb->len);
-  
-  // Release image buffer
-  esp_camera_fb_return(fb);
+void take_pic()
+{
+  if(camera_sign && sd_sign){
+       
+      if (digitalRead(capturePin) == 0) { // checks when the button is pressed
+        delay(200); //delay for debouncing
+        Serial.println("\nImage Captured");
+        char filename[32];
+        sprintf(filename, "/image%d.jpg", imageCount);
+        photo_save(filename);
+        Serial.printf("Saved picture：%s\n", filename);
+        Serial.println("");
+        imageCount++;   
 
-  Serial.println("Photo saved to file");
+    }
+  }
 }
 
 // SD card write file
@@ -67,6 +68,25 @@ void writeFile(fs::FS &fs, const char * path, uint8_t * data, size_t len){
     }
     file.close();
 }
+
+// Save pictures to SD card
+void photo_save(const char * fileName) {
+  // Take a photo
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
+    Serial.println("Failed to get camera frame buffer");
+    return;
+  }
+  // Save photo to file
+  writeFile(SD, fileName, fb->buf, fb->len);
+  
+  // Release image buffer
+  esp_camera_fb_return(fb);
+
+  Serial.println("Photo saved to file");
+}
+
+
 
 void setup() {
   Serial.begin(115200);
@@ -164,21 +184,3 @@ void loop() {
   take_pic();
 }
 
-void take_pic()
-{
-  if(camera_sign && sd_sign){
-       
-      if (digitalRead(capturePin) == 0) { // checks when the button is pressed
-        delay(200); //delay for debouncing
-        commandRecv = false;
-        Serial.println("\nImage Captured");
-        char filename[32];
-        sprintf(filename, "/image%d.jpg", imageCount);
-        photo_save(filename);
-        Serial.printf("Saved picture：%s\n", filename);
-        Serial.println("");
-        imageCount++;   
-
-    }
-  }
-}
